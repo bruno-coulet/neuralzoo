@@ -1,0 +1,38 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: neuralzoo-api
+    environment:
+      MODEL_PATH: /app/exports/cifar10_cnn.keras
+      DATA_DIR: /app/data
+      AUTO_DOWNLOAD_CIFAR: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./exports:/app/exports
+      - ./data:/app/data
+
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: neuralzoo-ui
+    environment:
+      API_URL: http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+
+  dataset:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: neuralzoo-dataset-init
+    command: ["python", "-m", "src.model", "--download-only", "--data-dir", "/app/data"]
+    volumes:
+      - ./data:/app/data
+    profiles:
+      - dataset

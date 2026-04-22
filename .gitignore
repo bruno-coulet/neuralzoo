@@ -1,0 +1,47 @@
+__pycache__/
+CLAUDE.md
+.github/copilot-instructions.md
+.vscode/settings.json
+data/
+
+# Python
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.python-version
+
+# Caches et tests
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environnements
+env/
+.env
+venv/
+.venv/
+.conda/
+
+# Logs et temporaires
+*.log
+*.tmp
+
+# Modeles et exports lourds
+exports/*.keras
+exports/*.h5
+exports/*.pt
+exports/*.pth
+exports/*.onnx
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/

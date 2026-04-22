@@ -1,0 +1,9 @@
+name: neuralzoo
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pandas
+  - scikit-learn
+  - tensorflow
+prefix: /home/coule/miniconda3/envs/neuralzoo
