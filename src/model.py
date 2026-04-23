@@ -1,5 +1,4 @@
 """
-Cartouche module:
 - Projet: Classification CIFAR-10 (MLP/CNN) avec service d'inference.
 - Role: chargement modele, pretraitement image, prediction, telechargement dataset.
 - Compatibilite: Python 3.10+.
@@ -16,6 +15,8 @@ from typing import Any
 
 import numpy as np
 from PIL import Image
+
+from src.heuristic import predict_cifar10_heuristic_logits
 
 try:
     import tensorflow as tf
@@ -84,31 +85,6 @@ class CifarPredictor:
             self.model = tf.keras.models.load_model(model_path)
             self.backend = "tensorflow"
 
-    def _predict_heuristic(self, image_batch: np.ndarray) -> np.ndarray:
-        """Produit des logits simples bases sur les canaux RGB comme fallback."""
-        sample = image_batch[0]
-        r_mean = float(sample[..., 0].mean())
-        g_mean = float(sample[..., 1].mean())
-        b_mean = float(sample[..., 2].mean())
-
-        logits = np.array(
-            [
-                b_mean * 1.4,  # airplane
-                r_mean * 1.2,  # automobile
-                g_mean * 1.1,  # bird
-                (r_mean + b_mean) * 0.9,  # cat
-                g_mean * 1.0,  # deer
-                (r_mean + g_mean) * 1.0,  # dog
-                g_mean * 1.2,  # frog
-                (r_mean + g_mean) * 1.1,  # horse
-                b_mean * 1.6,  # ship
-                r_mean * 1.3,  # truck
-            ],
-            dtype=np.float32,
-        )
-        logits = np.expand_dims(logits, axis=0)
-        return logits
-
     @staticmethod
     def _softmax(logits: np.ndarray) -> np.ndarray:
         """Calcule softmax de maniere numeriquement stable."""
@@ -121,7 +97,7 @@ class CifarPredictor:
         if self.model is not None:
             probs = self.model.predict(image_batch, verbose=0)
         else:
-            logits = self._predict_heuristic(image_batch)
+            logits = predict_cifar10_heuristic_logits(image_batch)
             probs = self._softmax(logits)
 
         scores = probs[0]
