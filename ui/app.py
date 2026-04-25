@@ -87,7 +87,7 @@ def main() -> None:
             st.write(f"**Architecture:** {details.get('architecture')}")
             st.write(f"**Époques:** {details.get('epochs_trained')}")
             st.write(f"**Augmentation:** {'Oui' if details.get('data_augmentation') else 'Non'}")
-ui            st.write(f"**Dropout:** {details.get('dropout_rate')}")
+            st.write(f"**Dropout:** {details.get('dropout_rate')}")
 
     # --- 2. Interface de téléchargement ---
     uploaded = st.file_uploader("Choisir une image", type=["png", "jpg", "jpeg"])
