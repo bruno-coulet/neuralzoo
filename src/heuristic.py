@@ -1,8 +1,8 @@
 """
-- Role: fallback de prediction quand aucun modele entraine n'est charge.
-- Principe: utilise uniquement l'image d'entree et calcule des scores a partir
-    des moyennes RGB.
-- Important: approche deterministe, sans tirage aleatoire et sans apprentissage.
+- Projet: Classification d'images (CIFAR-10) avec API d'inference.
+- Role: fallback heuristique quand aucun modele TensorFlow n'est charge.
+- Principe: calcule des logits deterministes a partir des moyennes RGB.
+- Limite: composant de secours, non destine a remplacer un modele entraine.
 """
 
 from __future__ import annotations

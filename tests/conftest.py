@@ -1,4 +1,8 @@
-"""Configuration pytest pour garantir l'import des modules du projet."""
+"""
+- Projet: tests automatises NeuralZOO.
+- Role: configuration pytest (injection du root projet dans sys.path).
+- Objectif: permettre des imports stables de src.* pendant les tests.
+"""
 
 from __future__ import annotations
 

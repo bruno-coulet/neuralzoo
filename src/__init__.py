@@ -1,1 +1,4 @@
-"""Package source pour API et logique de prediction."""
+"""
+- Projet: package source NeuralZOO.
+- Role: point d'entree package pour les modules API, modele et heuristique.
+"""

@@ -1,4 +1,8 @@
-"""Tests API FastAPI pour endpoint de sante et prediction image."""
+"""
+- Projet: tests automatises NeuralZOO.
+- Role: valider les endpoints critiques de l'API (sante et prediction).
+- Portee: tests d'integration legers via TestClient FastAPI.
+"""
 
 from __future__ import annotations
 

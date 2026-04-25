@@ -44,6 +44,11 @@ Caracteristiques:
 
 Le notebook telecharge directement l'archive officielle CIFAR-10 python version et charge le format Python (pickle).
 
+Sous-ensemble actuellement utilise pour l'entrainement du modele exporte:
+- classes animales uniquement: bird, cat, deer, dog, frog, horse
+- train: 30 000 images (puis split train/val)
+- test: 6 000 images
+
 ## 3) Etat actuel du depot
 
 Arborescence principale:
@@ -93,7 +98,7 @@ Notebook principal:
 Contenu:
 - setup Colab (verification Python/TensorFlow/GPU)
 - telechargement CIFAR-10 depuis Toronto
-- chargement et pretraitement
+- chargement, filtrage des classes animales, puis pretraitement
 - entrainement MLP
 - entrainement CNN
 - comparaison des performances
@@ -113,6 +118,10 @@ Endpoints:
 Comportement:
 - si un modele exporte existe dans exports/cifar10_cnn.keras, l'API l'utilise
 - sinon, un fallback heuristique permet de garder le service operationnel
+
+Etat backend valide en Docker:
+- backend tensorflow actif quand le fichier exports/cifar10_cnn.keras est present
+- fallback heuristique uniquement si modele absent ou non chargeable
 
 ## 7) Interface Streamlit
 
@@ -164,9 +173,13 @@ Etapes:
 
 - Le 404 sur /favicon.ico dans les logs API est non bloquant.
 - Le projet est valide localement (tests OK, compose OK, services demarres).
+- Les predictions actuelles sont fonctionnelles mais qualitativement insuffisantes pour une mise en production.
+- Le modele exporte actuel est un CNN entraine sur 6 classes animales (pas sur 10 classes CIFAR-10).
 
 ## 11) Suite possible
 
-- Remplacer le fallback par un modele CNN exporte reel.
+- Ameliorer la qualite du CNN (data augmentation, regularisation, scheduler LR, tuning hyperparametres).
+- Re-entrainer et exporter une version plus robuste du modele.
+- Ajouter des metriques de suivi (accuracy macro, f1 macro) et seuils de validation avant export.
 - Ajouter des tests d'integration UI->API.
 - Ajouter une etape de publication des images Docker en CI.

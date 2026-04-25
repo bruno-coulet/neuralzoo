@@ -1,6 +1,7 @@
 """
-- Projet: Classification CIFAR-10 (MLP/CNN) avec service d'inference.
-- Role: chargement modele, pretraitement image, prediction, telechargement dataset.
+- Projet: Classification d'images (CIFAR-10) avec API d'inference.
+- Role: coeur metier du modele (chargement, classes, preprocessing, prediction, export).
+- Integration: utilise par src.app (FastAPI) et notebooks/eda.ipynb (export du modele).
 - Compatibilite: Python 3.10+.
 """
 
@@ -24,7 +25,7 @@ except Exception:  # pragma: no cover
     tf = None
 
 
-CLASS_NAMES: list[str] = [
+CLASS_NAMES_CIFAR10: list[str] = [
     "airplane",
     "automobile",
     "bird",
@@ -37,7 +38,29 @@ CLASS_NAMES: list[str] = [
     "truck",
 ]
 
+CLASS_NAMES_ANIMALS: list[str] = [
+    "bird",
+    "cat",
+    "deer",
+    "dog",
+    "frog",
+    "horse",
+]
+
 CIFAR_URL = "https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"
+
+
+def save_trained_model(model: Any, export_path: Path | str) -> None:
+    """Sauvegarde un modèle Keras au format .keras.
+    
+    Args:
+        model: Modèle Keras entraîné.
+        export_path: Chemin de destination pour le fichier .keras.
+    """
+    export_path = Path(export_path)
+    export_path.parent.mkdir(parents=True, exist_ok=True)
+    model.save(export_path)
+    print(f"✓ Modèle sauvegardé : {export_path}")
 
 
 def download_cifar10_dataset(data_dir: Path) -> Path:
@@ -77,6 +100,8 @@ class CifarPredictor:
         self.model_path = model_path
         self.backend = "heuristic"
         self.model: Any | None = None
+        # Les labels sont adaptes automatiquement selon la sortie du modele charge.
+        self.class_names: list[str] = CLASS_NAMES_CIFAR10
 
         if auto_download_cifar:
             download_cifar10_dataset(data_dir)
@@ -84,6 +109,26 @@ class CifarPredictor:
         if tf is not None and model_path.exists():
             self.model = tf.keras.models.load_model(model_path)
             self.backend = "tensorflow"
+            self.class_names = self._resolve_class_names_from_model()
+
+    def _resolve_class_names_from_model(self) -> list[str]:
+        """Determine la liste de classes depuis le nombre de sorties du modele."""
+        if self.model is None:
+            return CLASS_NAMES_CIFAR10
+
+        output_shape = getattr(self.model, "output_shape", None)
+        if isinstance(output_shape, tuple) and output_shape:
+            nb_classes = int(output_shape[-1])
+        else:
+            return CLASS_NAMES_CIFAR10
+
+        if nb_classes == len(CLASS_NAMES_ANIMALS):
+            return CLASS_NAMES_ANIMALS
+        if nb_classes == len(CLASS_NAMES_CIFAR10):
+            return CLASS_NAMES_CIFAR10
+
+        # Fallback robuste pour des modeles custom.
+        return [f"class_{idx}" for idx in range(nb_classes)]
 
     @staticmethod
     def _softmax(logits: np.ndarray) -> np.ndarray:
@@ -99,18 +144,22 @@ class CifarPredictor:
         else:
             logits = predict_cifar10_heuristic_logits(image_batch)
             probs = self._softmax(logits)
+            # Le fallback heuristique travaille sur 10 classes CIFAR-10.
+            if probs.shape[1] != len(self.class_names):
+                self.class_names = CLASS_NAMES_CIFAR10
 
         scores = probs[0]
         order = np.argsort(scores)[::-1]
-        top_idx = order[:top_k]
+        top_k_safe = min(top_k, len(self.class_names))
+        top_idx = order[:top_k_safe]
         best_idx = int(top_idx[0])
 
         return {
-            "label": CLASS_NAMES[best_idx],
+            "label": self.class_names[best_idx],
             "score": float(scores[best_idx]),
             "backend": self.backend,
             "top_k": [
-                {"label": CLASS_NAMES[int(i)], "score": float(scores[int(i)])}
+                {"label": self.class_names[int(i)], "score": float(scores[int(i)])}
                 for i in top_idx
             ],
         }

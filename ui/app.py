@@ -1,7 +1,7 @@
 """
-Cartouche module:
 - Projet: Interface Streamlit pour inference CIFAR-10.
-- Role: upload image, appel API FastAPI, affichage prediction.
+- Role: frontend utilisateur (upload image, appel API, affichage prediction/top-k).
+- Integration: consomme l'endpoint /predict de src.app.
 - Compatibilite: Docker compose.
 """
 

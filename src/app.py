@@ -1,7 +1,8 @@
 """
-Cartouche module:
 - Projet: Service FastAPI d'inference CIFAR-10.
+- Role: couche HTTP (endpoints, schemas de reponse, cycle de vie du predictor).
 - Endpoints: /health, /predict, /dataset/download.
+- Integration: consomme src.model et alimente ui/app.py.
 - Compatibilite: Docker + Streamlit frontend.
 """
 
