@@ -35,7 +35,7 @@ venv/
 *.tmp
 
 # Modeles et exports lourds
-exports/*.keras
+# exports/*.keras
 exports/*.h5
 exports/*.pt
 exports/*.pth
