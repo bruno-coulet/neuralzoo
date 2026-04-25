@@ -1,0 +1,11 @@
+{
+    "model_name": "cifar10_cnn_v1.keras",
+    "architecture": "CNN",
+    "optimizer": "adam",
+    "batch_size": 128,
+    "epochs_trained": 25,
+    "val_accuracy": 0.7066666483879089,
+    "val_loss": 0.7916767001152039,
+    "data_augmentation": true,
+    "dropout_rate": 0.5
+}

@@ -1,8 +1,7 @@
 """
 - Projet: Classification d'images (CIFAR-10) avec API d'inference.
 - Role: coeur metier du modele (chargement, classes, preprocessing, prediction, export).
-- Integration: utilise par src.app (FastAPI) et notebooks/eda.ipynb (export du modele).
-- Compatibilite: Python 3.10+.
+- Integration: utilise par src.app (FastAPI) et notebooks/eda.ipynb.
 """
 
 from __future__ import annotations
@@ -17,139 +16,115 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from src.heuristic import predict_cifar10_heuristic_logits
+# Tentative d'import de l'heuristique (fallback si TF n'est pas là)
+try:
+    from src.heuristic import predict_cifar10_heuristic_logits
+except ImportError:
+    # Fallback minimal si le fichier n'existe pas lors de la reconstruction
+    def predict_cifar10_heuristic_logits(x): return np.zeros((len(x), 10))
 
 try:
     import tensorflow as tf
-except Exception:  # pragma: no cover
+except ImportError:
     tf = None
 
 
+# --- Constantes ---
+
 CLASS_NAMES_CIFAR10: list[str] = [
-    "airplane",
-    "automobile",
-    "bird",
-    "cat",
-    "deer",
-    "dog",
-    "frog",
-    "horse",
-    "ship",
-    "truck",
+    "airplane", "automobile", "bird", "cat", "deer",
+    "dog", "frog", "horse", "ship", "truck",
 ]
 
 CLASS_NAMES_ANIMALS: list[str] = [
-    "bird",
-    "cat",
-    "deer",
-    "dog",
-    "frog",
-    "horse",
+    "bird", "cat", "deer", "dog", "frog", "horse",
 ]
 
 CIFAR_URL = "https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"
 
 
+# --- Fonctions utilitaires ---
+
 def save_trained_model(model: Any, export_path: Path | str) -> None:
-    """Sauvegarde un modèle Keras au format .keras.
+    """Sauvegarde un modèle Keras au format .keras."""
+    path = Path(export_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    model.save(str(path))
+
+
+def download_cifar10_dataset(target_dir: Path | str) -> Path:
+    """Télécharge et extrait CIFAR-10 dans le dossier cible."""
+    target_dir = Path(target_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
     
-    Args:
-        model: Modèle Keras entraîné.
-        export_path: Chemin de destination pour le fichier .keras.
-    """
-    export_path = Path(export_path)
-    export_path.parent.mkdir(parents=True, exist_ok=True)
-    model.save(export_path)
-    print(f"✓ Modèle sauvegardé : {export_path}")
-
-
-def download_cifar10_dataset(data_dir: Path) -> Path:
-    """Telecharge CIFAR-10 (source Toronto) puis extrait les fichiers Python."""
-    data_dir.mkdir(parents=True, exist_ok=True)
-    archive_path = data_dir / "cifar-10-python.tar.gz"
-    extract_dir = data_dir / "cifar-10-batches-py"
-
+    archive_path = target_dir / "cifar-10-python.tar.gz"
     if not archive_path.exists():
+        print(f"Téléchargement de CIFAR-10 depuis {CIFAR_URL}...")
         urllib.request.urlretrieve(CIFAR_URL, archive_path)
-
-    if not extract_dir.exists():
-        with tarfile.open(archive_path, "r:gz") as tar:
-            tar.extractall(path=data_dir)
-
-    return extract_dir
+    
+    with tarfile.open(archive_path, "r:gz") as tar:
+        tar.extractall(path=target_dir)
+    
+    return target_dir / "cifar-10-batches-py"
 
 
 def preprocess_image_bytes(image_bytes: bytes) -> np.ndarray:
-    """Decode une image, la redimensionne en 32x32, puis normalise dans [0,1]."""
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    image = image.resize((32, 32))
-    arr = np.asarray(image, dtype=np.float32) / 255.0
-    arr = np.expand_dims(arr, axis=0)
-    return arr
+    """Transforme les bytes d'une image en batch prêt pour le modèle (1, 32, 32, 3)."""
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    img = img.resize((32, 32))
+    # Normalisation : mise à l'échelle [0, 1]
+    img_array = np.array(img).astype("float32") / 255.0
+    # Ajout de la dimension batch
+    return np.expand_dims(img_array, axis=0)
 
+
+# --- Classe de prédiction ---
 
 class CifarPredictor:
-    """Service de prediction CIFAR-10 avec backend TensorFlow ou fallback heuristique."""
+    """Gère le chargement du modèle et l'exécution de l'inférence."""
 
     def __init__(
         self,
-        model_path: Path = Path("exports/cifar10_cnn.keras"),
-        auto_download_cifar: bool = False,
-        data_dir: Path = Path("data"),
+        model_path: Path | str | None = None,
+        class_names: list[str] | None = None,
     ) -> None:
-        self.model_path = model_path
-        self.backend = "heuristic"
-        self.model: Any | None = None
-        # Les labels sont adaptes automatiquement selon la sortie du modele charge.
-        self.class_names: list[str] = CLASS_NAMES_CIFAR10
+        self.model_path = Path(model_path) if model_path else None
+        
+        # Par défaut, si on utilise un modèle filtré "animaux", on charge ces noms
+        # Sinon on charge les 10 noms CIFAR-10 par défaut.
+        self.class_names = class_names or CLASS_NAMES_ANIMALS
+        self.model = None
+        self.backend = "Heuristic (Fallback)"
 
-        if auto_download_cifar:
-            download_cifar10_dataset(data_dir)
+        if tf is not None and self.model_path and self.model_path.exists():
+            try:
+                self.model = tf.keras.models.load_model(str(self.model_path))
+                self.backend = f"TensorFlow ({self.model_path.name})"
+                
+                # Ajustement dynamique des classes si le modèle a 10 sorties
+                if self.model.output_shape[-1] == 10:
+                    self.class_names = CLASS_NAMES_CIFAR10
+            except Exception as e:
+                print(f"Erreur chargement modèle : {e}")
 
-        if tf is not None and model_path.exists():
-            self.model = tf.keras.models.load_model(model_path)
-            self.backend = "tensorflow"
-            self.class_names = self._resolve_class_names_from_model()
+    def _softmax(self, x: np.ndarray) -> np.ndarray:
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum(axis=1, keepdims=True)
 
-    def _resolve_class_names_from_model(self) -> list[str]:
-        """Determine la liste de classes depuis le nombre de sorties du modele."""
-        if self.model is None:
-            return CLASS_NAMES_CIFAR10
-
-        output_shape = getattr(self.model, "output_shape", None)
-        if isinstance(output_shape, tuple) and output_shape:
-            nb_classes = int(output_shape[-1])
-        else:
-            return CLASS_NAMES_CIFAR10
-
-        if nb_classes == len(CLASS_NAMES_ANIMALS):
-            return CLASS_NAMES_ANIMALS
-        if nb_classes == len(CLASS_NAMES_CIFAR10):
-            return CLASS_NAMES_CIFAR10
-
-        # Fallback robuste pour des modeles custom.
-        return [f"class_{idx}" for idx in range(nb_classes)]
-
-    @staticmethod
-    def _softmax(logits: np.ndarray) -> np.ndarray:
-        """Calcule softmax de maniere numeriquement stable."""
-        z = logits - logits.max(axis=1, keepdims=True)
-        exp_z = np.exp(z)
-        return exp_z / exp_z.sum(axis=1, keepdims=True)
-
-    def predict(self, image_batch: np.ndarray, top_k: int = 5) -> dict[str, Any]:
-        """Retourne prediction principale et top-k pour une image pretraitee."""
+    def predict(self, image_batch: np.ndarray, top_k: int = 5) -> dict:
+        """Exécute la prédiction et formate le résultat."""
         if self.model is not None:
             probs = self.model.predict(image_batch, verbose=0)
         else:
+            # Fallback heuristique si pas de modèle
             logits = predict_cifar10_heuristic_logits(image_batch)
             probs = self._softmax(logits)
-            # Le fallback heuristique travaille sur 10 classes CIFAR-10.
-            if probs.shape[1] != len(self.class_names):
-                self.class_names = CLASS_NAMES_CIFAR10
 
+        # Extraction des scores du premier (et seul) élément du batch
         scores = probs[0]
         order = np.argsort(scores)[::-1]
+        
+        # Sécurité sur le nombre de classes
         top_k_safe = min(top_k, len(self.class_names))
         top_idx = order[:top_k_safe]
         best_idx = int(top_idx[0])
@@ -159,23 +134,24 @@ class CifarPredictor:
             "score": float(scores[best_idx]),
             "backend": self.backend,
             "top_k": [
-                {"label": self.class_names[int(i)], "score": float(scores[int(i)])}
+                {
+                    "label": self.class_names[int(i)], 
+                    "score": float(scores[int(i)])
+                }
                 for i in top_idx
             ],
         }
 
+# --- CLI ---
 
 def _main() -> None:
-    """Point d'entree CLI pour precharger le dataset CIFAR-10."""
-    parser = argparse.ArgumentParser(description="Utilitaires modele CIFAR-10")
-    parser.add_argument("--download-only", action="store_true", help="Telecharge CIFAR-10")
-    parser.add_argument("--data-dir", default="data", help="Dossier de destination")
+    parser = argparse.ArgumentParser(description="Utilitaires CIFAR-10")
+    parser.add_argument("--download-only", action="store_true")
+    parser.add_argument("--data-dir", default="data")
     args = parser.parse_args()
 
     if args.download_only:
-        extract_dir = download_cifar10_dataset(Path(args.data_dir))
-        print(f"Dataset pret dans: {extract_dir}")
-
+        download_cifar10_dataset(args.data_dir)
 
 if __name__ == "__main__":
     _main()

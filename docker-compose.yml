@@ -25,6 +25,8 @@ services:
       - api
     ports:
       - "8501:8501"
+    volumes:
+      - ./exports:/app/exports
 
   dataset:
     build:

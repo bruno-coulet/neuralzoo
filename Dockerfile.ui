@@ -11,6 +11,13 @@ RUN pip install --no-cache-dir -r requirements-ui.txt
 
 COPY ui ./ui
 
+# Création du dossier exports (vide par défaut)
+# Il sera rempli par le volume partagé défini dans docker-compose.yml
+RUN mkdir -p /app/exports
+
+# Exposition du port Streamlit
 EXPOSE 8501
 
+# Lancement de Streamlit
+# On utilise ui/app.py comme point d'entrée
 CMD ["streamlit", "run", "ui/app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
